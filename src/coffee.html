@@ -1,0 +1,99 @@
+# coffeescript
+
+canvas = document.getElementById('dduCanvas')
+context = canvas.getContext('2d')
+context.lineWidth = 1
+
+canvasCenterX = canvas.width/2
+canvasCenterY = canvas.height/2
+
+# old bestCenter = (640, 400)
+shiftX = canvasCenterX + 200
+shiftY = canvasCenterY - 400
+scale = 0.5 # Math.min(canvas.height/800, canvas.width/1280)
+
+
+clone = (obj) ->
+  newInstance = new obj.constructor()
+  for key of obj
+    newInstance[key] = obj[key]
+  return newInstance
+
+
+class Circle
+  constructor: (x, y, r, rule="", @color="#000000", @visible=false, @fill=false) ->
+    @x = (x + shiftX) * scale
+    @y = (y + shiftY) * scale
+    @r = r * scale
+    @r2 = @r * @r
+    @rule = (parseInt(x) for x in rule)
+
+  @fromJSON: (json) ->
+    {x, y, r, rule, color, visible, fill} = json
+    return new Circle(x, y, r, rule, color, visible, fill)
+
+  # invert *this* with respect to the *circle*
+  invert: (circle) ->
+    dx = @x - circle.x
+    dy = @y - circle.y
+    d = Math.sqrt(dx*dx + dy*dy)
+    ratio = circle.r2 / (d*d - @r2)
+    @x = circle.x + ratio * dx
+    @y = circle.y + ratio * dy
+    @r = Math.abs(@r * ratio)
+    @r2 = @r * @r
+
+  draw: (context) ->
+    if @visible
+      context.beginPath()
+      context.arc(@x, @y, @r, 0, 2 * Math.PI, false)
+      if @fill
+        context.fillStyle = @color
+        context.fill()
+      
+      context.strokeStyle = @color
+      context.stroke()
+
+
+step = (circles) ->
+  newCircles = (clone(circle) for circle in circles)
+  for newCircle in newCircles
+    for j in newCircle.rule
+      newCircle.invert(circles[j])
+  
+  for newCircle, i in newCircles
+    circles[i] = newCircle
+  newCircles
+
+
+window.addEventListener('load', ->
+  console.log('Page is loaded')
+)
+
+winterDduCircles = [
+    new Circle(-920.753173828125, 1866.708740234375, 1859.665708492877),
+    new Circle(-901.8592529296875, 1878.81103515625, 1854.104930797163),
+    new Circle(468.9537048339844, 340.31658935546875, 339.07684691208505, "01"),
+    new Circle(468.5248718261719, 345.0711669921875, 335.5959384049609, "01"),
+    new Circle(1388.179443359375, -3772.58935546875, 4538.483459205404, "2301"),
+    new Circle(1767.4017333984375, -5054.71484375, 5872.806895318434, "2301"),
+    new Circle(677.2852783203125, 879.8759765625, 63.33096624273902, "45452301", "#200020", true, true),
+    new Circle(663.2559814453125, 889.6435546875, 56.01607696333538, "45452301", "#0000ff", true, true),
+    new Circle(369.8866882324219, 806.8751220703125, 299.7592443917674, "45452301", "#80ffff", true)
+]
+
+// from the global @ddu variable
+dduCircles = (Circle.fromJSON(json) for json in ddu)
+
+update = () ->
+  for circle in dduCircles
+    circle.draw(context)
+  dduCircles = step(dduCircles)
+
+mainLoop = setInterval(update, delayMiliseconds ?? 40)
+
+
+# use
+# https://awsm-tools.com/coffeescript-to-javascript
+# or local $ coffee -c
+# to generate .js
